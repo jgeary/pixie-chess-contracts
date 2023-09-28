@@ -5,10 +5,24 @@ import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ER
 import { ERC1155URIStorageUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155URIStorageUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract Token is ERC1155URIStorageUpgradeable, AccessControlUpgradeable {
+contract PixieChessToken is
+    ERC1155URIStorageUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     bytes32 public constant METADATA_ROLE = keccak256("METADATA_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+    function initialize() public nonReentrant onlyInitializing {
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        __ERC1155URIStorage_init();
+    }
 
     function mint(address account, uint256 id, uint256 amount, bytes memory data) external onlyRole(MINTER_ROLE) {
         _mint(account, id, amount, data);
@@ -31,4 +45,6 @@ contract Token is ERC1155URIStorageUpgradeable, AccessControlUpgradeable {
     {
         return super.supportsInterface(interfaceId);
     }
+
+    function _authorizeUpgrade(address _newImpl) internal view override onlyRole(DEFAULT_ADMIN_ROLE) { }
 }
