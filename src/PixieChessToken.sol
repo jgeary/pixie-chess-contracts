@@ -17,8 +17,9 @@ contract PixieChessToken is
     bytes32 public constant METADATA_ROLE = keccak256("METADATA_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    function initialize() public nonReentrant onlyInitializing {
+    function initialize(address multisig) public nonReentrant onlyInitializing {
         __AccessControl_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, multisig);
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
         __ERC1155URIStorage_init();
