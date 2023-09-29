@@ -127,7 +127,7 @@ contract PixieChessAuctionMinter is AccessControl {
         Auction storage auction = auctions[auctionId];
 
         if (auction.duration == 0) {
-            revert("Auction: Auction doesn't exist");
+            revert("Auction: Auction does not exist");
         }
         if (auction.startTime + auction.duration > block.timestamp) {
             revert("Auction: Auction not yet ended");
