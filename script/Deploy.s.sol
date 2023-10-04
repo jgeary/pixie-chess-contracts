@@ -15,7 +15,7 @@ contract Deploy is Script {
         vm.startBroadcast(deployer);
 
         PixieChessToken tokenImpl = new PixieChessToken();
-        PixieChessToken token = PixieChessToken(address(new ERC1967Proxy(tokenImpl, "")));
+        PixieChessToken token = PixieChessToken(address(new ERC1967Proxy(address(tokenImpl), "")));
         token.initialize(multisig);
 
         PixieChessAuctionMinter auction = new PixieChessAuctionMinter(multisig, address(token));
