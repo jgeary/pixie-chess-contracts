@@ -7,8 +7,9 @@ import { IPixieChessToken } from "./IPixieChessToken.sol";
 
 contract PixieChessAuctionMinter is AccessControl {
     bytes32 public constant AUCTION_MANAGER_ROLE = keccak256("AUCTION_MANAGER_ROLE");
-    uint16 constant TIME_BUFFER = 15 minutes;
-    uint8 constant MIN_BID_INCREMENT_PERCENTAGE = 10;
+    uint16 public constant MIN_DURATION = 1 hours;
+    uint16 public constant TIME_BUFFER = 15 minutes;
+    uint8 public constant MIN_BID_INCREMENT_PERCENTAGE = 10;
 
     struct Auction {
         uint256 tokenId;
@@ -21,20 +22,21 @@ contract PixieChessAuctionMinter is AccessControl {
     }
 
     address public tokenAddress;
-    address public fundsRecipient;
-    uint256 internal auctionIdCounter;
+    address payable public fundsRecipient;
+    mapping(uint256 id => Auction auction) public auctions;
 
-    mapping(uint256 => Auction) public auctions;
+    uint256 internal _auctionIdCounter;
 
     event AuctionCreated(uint256 auctionId, uint256 tokenId, uint96 reservePrice, uint32 duration, uint32 startTime);
     event AuctionCanceled(uint256 auctionId);
     event Bid(uint256 auctionId, address bidder, uint256 amount, uint32 duration);
     event AuctionFinalized(uint256 auctionId, address winner, uint256 amount);
+    event FundsRecipientSet(address oldFundsRecipient, address newFundsRecipient);
 
-    constructor(address multisig, address _tokenAddress) {
-        _grantRole(DEFAULT_ADMIN_ROLE, multisig);
-        _grantRole(AUCTION_MANAGER_ROLE, multisig);
-        fundsRecipient = multisig;
+    constructor(address payable _admin, address _tokenAddress) {
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+        _grantRole(AUCTION_MANAGER_ROLE, _admin);
+        fundsRecipient = _admin;
         tokenAddress = _tokenAddress;
     }
 
@@ -47,11 +49,11 @@ contract PixieChessAuctionMinter is AccessControl {
         external
         onlyRole(AUCTION_MANAGER_ROLE)
     {
-        require(duration >= 1 hours, "Auction: Duration must be at least 1 minute");
-        require(startTime >= block.timestamp, "Auction: Start time must be in the future");
+        require(duration >= MIN_DURATION, "Auction: invalid duration");
+        require(startTime >= block.timestamp, "Auction: invalid start time");
 
-        uint256 auctionId = auctionIdCounter;
-        auctionIdCounter += 1;
+        uint256 auctionId = _auctionIdCounter;
+        _auctionIdCounter += 1;
 
         auctions[auctionId] = Auction({
             tokenId: tokenId,
@@ -98,14 +100,11 @@ contract PixieChessAuctionMinter is AccessControl {
         }
 
         if (auction.firstBidTime == 0) {
-            require(msg.value >= auction.reservePrice, "Auction: Bid must be at least reserve price");
+            require(msg.value >= auction.reservePrice, "Auction: Bid must meet reserve");
             auction.firstBidTime = uint32(block.timestamp);
         } else {
             uint256 minBidIncrement = (auction.highestBid * MIN_BID_INCREMENT_PERCENTAGE) / 100;
-            require(
-                msg.value >= auction.highestBid + minBidIncrement,
-                "Auction: Bid must be at least 10% higher than previous bid"
-            );
+            require(msg.value >= auction.highestBid + minBidIncrement, "Auction: Bid increase too small");
             // refund previous highest bidder
             payable(auction.highestBidder).transfer(auction.highestBid);
         }
@@ -140,11 +139,16 @@ contract PixieChessAuctionMinter is AccessControl {
         IPixieChessToken(tokenAddress).mint(auction.highestBidder, auction.tokenId, 1, "");
 
         // transfer the ETH to the funds recipient
-        payable(fundsRecipient).transfer(auction.highestBid);
+        fundsRecipient.transfer(auction.highestBid);
 
         emit AuctionFinalized(auctionId, auction.highestBidder, auction.highestBid);
 
         delete auctions[auctionId];
+    }
+
+    function setFundsRecipient(address payable _fundsRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        emit FundsRecipientSet(fundsRecipient, _fundsRecipient);
+        fundsRecipient = _fundsRecipient;
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
