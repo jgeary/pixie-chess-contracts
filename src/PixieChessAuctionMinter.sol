@@ -97,7 +97,10 @@ contract PixieChessAuctionMinter is AccessControl {
             revert("Auction: Auction already ended");
         }
 
-        if (auction.firstBidTime != 0) {
+        if (auction.firstBidTime == 0) {
+            require(msg.value >= auction.reservePrice, "Auction: Bid must be at least reserve price");
+            auction.firstBidTime = uint32(block.timestamp);
+        } else {
             uint256 minBidIncrement = (auction.highestBid * MIN_BID_INCREMENT_PERCENTAGE) / 100;
             require(
                 msg.value >= auction.highestBid + minBidIncrement,
@@ -105,9 +108,6 @@ contract PixieChessAuctionMinter is AccessControl {
             );
             // refund previous highest bidder
             payable(auction.highestBidder).transfer(auction.highestBid);
-        } else {
-            require(msg.value >= auction.reservePrice, "Auction: Bid must be at least reserve price");
-            auction.firstBidTime = uint32(block.timestamp);
         }
 
         // if remaining time is less than the time buffer, extend the duration by the time buffer
