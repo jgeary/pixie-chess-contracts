@@ -17,7 +17,6 @@ contract PixieChessAuctionMinter is AccessControl {
         uint32 duration;
         uint32 startTime;
         address highestBidder;
-        uint32 firstBidTime;
     }
 
     address public tokenAddress;
@@ -60,8 +59,7 @@ contract PixieChessAuctionMinter is AccessControl {
             highestBid: 0,
             highestBidder: address(0),
             duration: duration,
-            startTime: startTime,
-            firstBidTime: 0
+            startTime: startTime
         });
 
         emit AuctionCreated(auctionId, tokenId, reservePrice, duration, startTime);
@@ -98,9 +96,8 @@ contract PixieChessAuctionMinter is AccessControl {
             revert("Auction: Auction already ended");
         }
 
-        if (auction.firstBidTime == 0) {
+        if (auction.highestBid == 0) {
             require(msg.value >= auction.reservePrice, "Auction: Bid must meet reserve");
-            auction.firstBidTime = uint32(block.timestamp);
         } else {
             uint256 minBidIncrement = (auction.highestBid * MIN_BID_INCREMENT_PERCENTAGE) / 100;
             require(msg.value >= auction.highestBid + minBidIncrement, "Auction: Bid increase too small");
