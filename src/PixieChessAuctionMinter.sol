@@ -79,7 +79,8 @@ contract PixieChessAuctionMinter is AccessControl {
         delete auctions[auctionId];
 
         if (refundRecipient != address(0) && refundAmount != 0) {
-            payable(refundRecipient).transfer(refundAmount);
+            (bool success,) = payable(refundRecipient).call{ value: refundAmount }("");
+            require(success, "Auction: ETH transfer failed");
         }
 
         emit AuctionCanceled(auctionId);
@@ -120,7 +121,8 @@ contract PixieChessAuctionMinter is AccessControl {
 
         // transfer the previous highest bid to the previous highest bidder
         if (refundRecipient != address(0) && refundAmount != 0) {
-            payable(refundRecipient).transfer(refundAmount);
+            (bool success,) = payable(refundRecipient).call{ value: refundAmount }("");
+            require(success, "Auction: ETH transfer failed");
         }
 
         emit Bid(auctionId, msg.sender, msg.value, auction.duration);
@@ -143,7 +145,8 @@ contract PixieChessAuctionMinter is AccessControl {
         IPixieChessToken(tokenAddress).mint(auction.highestBidder, auction.tokenId, 1, "");
 
         // transfer the ETH to the funds recipient
-        fundsRecipient.transfer(auction.highestBid);
+        (bool success,) = fundsRecipient.call{ value: auction.highestBid }("");
+        require(success, "Auction: ETH transfer failed");
 
         emit AuctionFinalized(auctionId, auction.highestBidder, auction.highestBid);
 
