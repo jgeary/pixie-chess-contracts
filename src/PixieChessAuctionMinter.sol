@@ -73,12 +73,14 @@ contract PixieChessAuctionMinter is AccessControl {
             revert("Auction: Auction does not exist");
         }
 
-        // if there is a bid on the auction, refund ETH to the highest bidder
-        if (auction.highestBidder != address(0) && auction.highestBid != 0) {
-            payable(auction.highestBidder).transfer(auction.highestBid);
-        }
+        address refundRecipient = auction.highestBidder;
+        uint256 refundAmount = auction.highestBid;
 
         delete auctions[auctionId];
+
+        if (refundRecipient != address(0) && refundAmount != 0) {
+            payable(refundRecipient).transfer(refundAmount);
+        }
 
         emit AuctionCanceled(auctionId);
     }
@@ -96,13 +98,14 @@ contract PixieChessAuctionMinter is AccessControl {
             revert("Auction: Auction already ended");
         }
 
+        address refundRecipient = auction.highestBidder;
+        uint256 refundAmount = auction.highestBid;
+
         if (auction.highestBid == 0) {
             require(msg.value >= auction.reservePrice, "Auction: Bid must meet reserve");
         } else {
             uint256 minBidIncrement = (auction.highestBid * MIN_BID_INCREMENT_PERCENTAGE) / 100;
             require(msg.value >= auction.highestBid + minBidIncrement, "Auction: Bid increase too small");
-            // refund previous highest bidder
-            payable(auction.highestBidder).transfer(auction.highestBid);
         }
 
         // if remaining time is less than the time buffer, extend the duration by the time buffer
@@ -114,6 +117,11 @@ contract PixieChessAuctionMinter is AccessControl {
         // set the new highest bidder
         auction.highestBid = uint96(msg.value);
         auction.highestBidder = msg.sender;
+
+        // transfer the previous highest bid to the previous highest bidder
+        if (refundRecipient != address(0) && refundAmount != 0) {
+            payable(refundRecipient).transfer(refundAmount);
+        }
 
         emit Bid(auctionId, msg.sender, msg.value, auction.duration);
     }
